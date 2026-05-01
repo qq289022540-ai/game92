@@ -206,7 +206,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0f172a;color:#f1f5f
     <div class="tool-group-title">📤 数据交互</div>
     <div class="compact-btn-group">
       <button class="compact-btn btn-basemap" onclick="importKMZ()">📤 导入底图(KML/KMZ)</button>
-      <button class="compact-btn btn-basemap" onclick="exportExcelWithImages()">✅ 导出Excel（含图片）<span class="hint-inline">直接下载</span></button>
+      <button class="compact-btn btn-basemap" onclick="exportKMZ()">✅ 导出KMZ（含底图）<span class="hint-inline">下载后请发送微信</span></button>
       <button class="compact-btn btn-organize" onclick="saveDataToDesktop()">📊 导出Excel<span class="hint-inline">下载后请发送微信</span></button>
       <button class="compact-btn btn-organize" onclick="generateSummary()">📈 数据汇总</button>
       <button class="compact-btn btn-basemap" onclick="backupAllData()">🗂 导出全部数据<span class="hint-inline">包含Excel/KMZ/照片/图标</span></button>
@@ -247,46 +247,6 @@ const typeIcons = {
   machine: { icon: "https://cdn-icons-png.flaticon.com/64/929/929110.png", exportIcon: "https://maps.google.com/mapfiles/kml/pushpin/blu-pushpin.png", name: "机械" },
   custom: { icon: "https://cdn-icons-png.flaticon.com/64/2927/2927784.png", exportIcon: "https://maps.google.com/mapfiles/kml/pushpin/purple-pushpin.png", name: "自定义" }
 };
-
-// 定位功能实现
-function toggleLocate() {
-  const btn = document.getElementById('locateBtn');
-  btn.classList.toggle('active');
-  
-  if (btn.classList.contains('active')) {
-    if (!navigator.geolocation) {
-      alert("您的浏览器不支持定位功能");
-      btn.classList.remove('active');
-      return;
-    }
-    
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        map.setView([lat, lng], 16);
-        setStatus(`✅ 已定位到当前位置: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-        
-        // 添加临时定位标记
-        L.marker([lat, lng], {
-          icon: L.icon({
-            iconUrl: "https://cdn-icons-png.flaticon.com/64/149/149059.png",
-            iconSize: [30, 30],
-            iconAnchor: [15, 30]
-          })
-        }).addTo(map).bindPopup("当前位置").openPopup();
-      },
-      (err) => {
-        alert(`定位失败: ${err.message}`);
-        btn.classList.remove('active');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
-    );
-  } else {
-    setStatus("✅ 已关闭定位");
-  }
-}
-
 window.onload = function(){
   document.getElementById('weatherDate').valueAsDate = new Date();
   initMap('normal');
@@ -299,12 +259,10 @@ window.onload = function(){
     }, 2000);
   }
 };
-
 function initMap(style = 'normal'){
   map = L.map('map').setView([AFIF.lat, AFIF.lng], AFIF.zoom);
   changeMapStyle(style);
 }
-
 function changeMapStyle(style){
   document.querySelectorAll('.style-item').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`.style-${style}`).classList.add('active');
@@ -323,27 +281,22 @@ function changeMapStyle(style){
   setStatus(`✅ 底图已切换为${style === 'normal' ? '标准' : style === 'satellite' ? '卫星' : style === 'dark' ? '深色' : style === 'light' ? '浅色' : style === 'gray' ? '灰色' : '蓝色'}样式`);
   updateAreaLayerColor();
 }
-
 function changeAreaColor(color){
   document.querySelectorAll('.color-item').forEach(btn => { if(btn.onclick.toString().includes('changeAreaColor')) btn.classList.remove('active'); });
   document.querySelectorAll('.color-item').forEach(btn => { if(btn.onclick.toString().includes('changeAreaColor') && btn.onclick.toString().includes(color)) btn.classList.add('active'); });
   areaColor = color; updateAreaLayerColor(); setStatus(`✅ 施工区域颜色已改为${getColorName(color)}`);
 }
-
 function changeTextColor(color){
   document.querySelectorAll('.color-item').forEach(btn => { if(btn.onclick.toString().includes('changeTextColor')) btn.classList.remove('active'); });
   document.querySelectorAll('.color-item').forEach(btn => { if(btn.onclick.toString().includes('changeTextColor') && btn.onclick.toString().includes(color)) btn.classList.add('active'); });
   textColor = color; updateTextLayerColor(); setStatus(`✅ 施工区域文本颜色已改为${getTextColorName(color)}`);
 }
-
 function updateAreaLayerColor(){
   map.eachLayer(l => { if(l instanceof L.Polygon || l instanceof L.Polyline){ if(l.options && l.options.interactive === false){ try{ l.setStyle({ color: areaColor, fillColor: areaColor }); }catch(e){} } } });
 }
-
 function updateTextLayerColor(){
   map.eachLayer(l => { if(l.options?.className === 'marker-label'){ const newHtml = l.getIcon().options.html.replace(/color:#[0-9a-fA-F]{6}/, `color:${textColor}`); l.setIcon(L.divIcon({ className: 'marker-label', html: newHtml, iconSize: [0,0], iconAnchor: [18, -12] })); } });
 }
-
 function getColorName(color){ const colorMap = {'#06b6d4':'蓝色','#22c55e':'绿色','#ef4444':'红色','#eab308':'黄色','#a855f7':'紫色','#f97316':'橙色','#ec4899':'粉色'}; return colorMap[color] || color; }
 function getTextColorName(color){ const colorMap = {'#fbbf24':'黄色','#ffffff':'白色','#000000':'黑色','#ef4444':'红色','#06b6d4':'蓝色','#22c55e':'绿色','#a855f7':'紫色','#f97316':'橙色'}; return colorMap[color] || color; }
 
@@ -365,7 +318,6 @@ function startPlaceAfterConfirm(){
   enableMapClickForMark();
   setStatus("👉 已收起面板，请点击地图完成标注");
 }
-
 function enableMapClickForMark(){
   if(mapClickListener) return;
   mapClickListener = (e) => {
@@ -376,7 +328,6 @@ function enableMapClickForMark(){
   };
   map.on('click', mapClickListener);
 }
-
 function realPlaceMarker(){
   if(!currentMarkPoint || !tempMarkData) return;
   const { type, f1, f2, f3, f4, f5, f6, remark, iconInfo, iconUrl, exportUrl } = tempMarkData;
@@ -404,7 +355,6 @@ function realPlaceMarker(){
   disableMapClickForMark();
   setStatus(`✅ 标注完成：${label}`);
 }
-
 function toggleMarkPanel(){
   const panel = document.getElementById('markPanel');
   const btn = document.getElementById('btnMark');
@@ -418,12 +368,10 @@ function toggleMarkPanel(){
     setStatus("📝 填写信息，确认后点地图标注");
   }
 }
-
 function disableMapClickForMark(){
   if(map && mapClickListener){ map.off('click', mapClickListener); mapClickListener = null; }
   currentMarkPoint = null; hidePositionDisplay();
 }
-
 function hidePositionDisplay(){
   document.getElementById('positionDisplay').style.display = 'none';
   document.getElementById('markPosition').value = '';
@@ -434,14 +382,12 @@ function hidePositionDisplay(){
   document.getElementById('iconPreviewImg').src = '';
   isPlacingMode = false;
 }
-
 function onIconSelected(event){
   const file = event.target.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = (e) => { currentIconDataUrl = e.target.result; document.getElementById('iconPreviewImg').src = currentIconDataUrl; document.getElementById('iconPreview').style.display = 'block'; };
   reader.readAsDataURL(file);
 }
-
 function onTypeChange(){
   const type = document.getElementById('markType').value;
   const c = document.getElementById('dynamicFields');
@@ -469,27 +415,22 @@ function onTypeChange(){
 <div class="form-group"><label>内容</label><input id="f2"></div>`;
   c.innerHTML = h;
 }
-
 function deleteMarker(id){
   const i = markers.findIndex(m=>m.id===id);
   if(i!==-1){map.removeLayer(markers[i].marker);map.removeLayer(markers[i].labelLayer);markers.splice(i,1);setStatus("✅ 已删除");}
 }
-
 function closeAllPanels(){
   document.querySelectorAll('.float-panel').forEach(el=>el.classList.remove('show'));
   resetBottomBtnActive();
   disableMapClickForMark();
   markPanelOpen = false; isPlacingMode = false;
 }
-
 function resetBottomBtnActive(){document.querySelectorAll('.bottom-btn').forEach(btn=>btn.classList.remove('active'));}
-
 function toggleWeatherPanel(){
   const p=document.getElementById('weatherPanel'),b=document.getElementById('btnWeather');
   if(p.classList.contains('show')){p.classList.remove('show');b.classList.remove('active');setStatus("✅ 天气面板已关闭");}
   else{closeAllPanels();p.classList.add('show');b.classList.add('active');setStatus("🌤 天气记录");}
 }
-
 function toggleToolPanel(){
   const p=document.getElementById('toolPanel'),b=document.getElementById('btnTool');
   if(p.classList.contains('show')){p.classList.remove('show');b.classList.remove('active');setStatus("✅ 工具面板已关闭");}
@@ -564,322 +505,95 @@ async function importKMZ(){
   input.click();
 }
 
-// 导出Excel（含图片）- 修复BIN格式问题
-async function exportExcelWithImages() {
-  if (markers.length === 0) {
-    alert('无标注数据可导出');
+async function exportKMZ() {
+  if (markers.length === 0 && importedLayers.length === 0) {
+    alert('无数据可导出');
     return;
   }
 
-  setStatus('⏳ 正在生成Excel文件...');
-  try {
-    const wb = XLSX.utils.book_new();
-    const wsData = [];
-    wsData.push([
-      '标注类型', '名称', '内容', '数量/人数', '补充信息',
-      '时间范围', '备注', '纬度', '经度'
-    ]);
+  setStatus('⏳ 正在生成KMZ文件...（请勿退出页面）');
+  alert('⏳ 正在生成文件，生成完成后会自动触发下载/分享，请耐心等待');
 
-    // 构建表格数据
-    for (const m of markers) {
-      let type = m.type;
-      let name = m.f1 || '未命名';
-      let content = m.f2 || '-';
-      let count = m.f3 || '-';
-      let extra = '-';
-      let timeRange = '-';
-      
-      if (type === '人员') { 
-        extra = '-'; 
-        timeRange = m.f4 && m.f5 ? `${m.f4}-${m.f5}` : '-'; 
-      } else if (type === '材料') { 
-        extra = m.f4 || '-'; 
-      } else if (type === '机械') { 
-        extra = m.f4 || '-'; 
-        timeRange = m.f5 && m.f6 ? `${m.f5}-${m.f6}` : '-'; 
-      }
-
-      wsData.push([ 
-        type, 
-        name, 
-        content, 
-        count, 
-        extra, 
-        timeRange, 
-        m.remark || '-', 
-        m.lat.toFixed(6), 
-        m.lng.toFixed(6) 
-      ]);
-    }
-
-    // 创建工作表
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
-    // 设置列宽
-    ws['!cols'] = [ 
-      { wch:10 },{ wch:15 },{ wch:20 },{ wch:10 },{ wch:15 },
-      { wch:15 },{ wch:20 },{ wch:15 },{ wch:15 }
-    ];
-    
-    // 添加工作表到工作簿
-    XLSX.utils.book_append_sheet(wb, ws, '光伏施工标注');
-    
-    // 生成Excel文件并下载（关键修复：使用正确的导出方法）
-    const excelFileName = `光伏施工标注_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
-    
-    // 确保生成标准xlsx格式
-    XLSX.writeFile(wb, excelFileName, {
-      bookType: 'xlsx',
-      type: 'file'
-    });
-    
-    setStatus('✅ Excel导出成功');
-    alert(`Excel文件已下载：${excelFileName}`);
-  } catch (err) {
-    setStatus('❌ Excel导出失败');
-    alert('导出失败：' + err.message);
-    console.error('Excel导出错误:', err);
-  }
-}
-
-// 简化版Excel导出（无图片）
-async function saveDataToDesktop() {
-  if (markers.length === 0) {
-    alert('无标注数据可导出');
-    return;
-  }
-
-  setStatus('⏳ 正在生成Excel文件...');
-  try {
-    const wb = XLSX.utils.book_new();
-    
-    // 标注数据
-    const markerData = [];
-    markerData.push(['标注类型', '名称', '内容', '数量/人数', '补充信息', '时间范围', '备注', '纬度', '经度']);
-    
-    markers.forEach(m => {
-      let type = m.type;
-      let name = m.f1 || '未命名';
-      let content = m.f2 || '-';
-      let count = m.f3 || '-';
-      let extra = '-';
-      let timeRange = '-';
-      
-      if (type === '人员') {
-        timeRange = m.f4 && m.f5 ? `${m.f4}-${m.f5}` : '-';
-      } else if (type === '材料') {
-        extra = m.f4 || '-';
-      } else if (type === '机械') {
-        extra = m.f4 || '-';
-        timeRange = m.f5 && m.f6 ? `${m.f5}-${m.f6}` : '-';
-      }
-      
-      markerData.push([
-        type, name, content, count, extra, timeRange,
-        m.remark || '-', m.lat.toFixed(6), m.lng.toFixed(6)
-      ]);
-    });
-    
-    // 天气数据
-    const weatherData = [];
-    weatherData.push(['日期', '天气状况', '施工影响', '延期天数']);
-    weatherRecords.forEach(w => {
-      weatherData.push([
-        w.date || '-',
-        w.cond || '-',
-        w.imp || '-',
-        w.delay || 0
-      ]);
-    });
-    
-    // 创建工作表
-    const markerWs = XLSX.utils.aoa_to_sheet(markerData);
-    const weatherWs = XLSX.utils.aoa_to_sheet(weatherData);
-    
-    // 设置列宽
-    markerWs['!cols'] = [
-      { wch:10 },{ wch:15 },{ wch:20 },{ wch:10 },{ wch:15 },
-      { wch:15 },{ wch:20 },{ wch:15 },{ wch:15 }
-    ];
-    weatherWs['!cols'] = [{ wch:12 },{ wch:10 },{ wch:10 },{ wch:10 }];
-    
-    // 添加工作表
-    XLSX.utils.book_append_sheet(wb, markerWs, '标注数据');
-    XLSX.utils.book_append_sheet(wb, weatherWs, '天气记录');
-    
-    // 生成文件名
-    const fileName = `光伏施工数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
-    
-    // 导出文件
-    XLSX.writeFile(wb, fileName, {
-      bookType: 'xlsx',
-      type: 'file'
-    });
-    
-    setStatus('✅ Excel导出成功');
-    alert(`Excel文件已下载：${fileName}`);
-  } catch (err) {
-    setStatus('❌ Excel导出失败');
-    alert('导出失败：' + err.message);
-    console.error('Excel导出错误:', err);
-  }
-}
-
-// 数据汇总
-function generateSummary() {
-  if (markers.length === 0) {
-    alert('无数据可汇总');
-    return;
-  }
-
-  // 统计各类标注数量
-  const summary = {
-    人员: 0,
-    材料: 0,
-    机械: 0,
-    自定义: 0,
-    总数量: 0
-  };
-
-  // 统计人数/材料/机械数量
-  let personCount = 0;
-  let materialCount = 0;
-  let machineCount = 0;
-
-  markers.forEach(m => {
-    summary[m.type]++;
-    summary.总数量++;
-    
-    const count = parseInt(m.f3) || 0;
-    if (m.type === '人员') personCount += count;
-    else if (m.type === '材料') materialCount += count;
-    else if (m.type === '机械') machineCount += count;
-  });
-
-  // 生成汇总信息
-  let summaryText = `📊 光伏施工数据汇总\n\n`;
-  summaryText += `标注总数：${summary.总数量} 个\n\n`;
-  summaryText += `🔹 人员标注：${summary.人员} 个 (总人数：${personCount} 人)\n`;
-  summaryText += `🔹 材料标注：${summary.材料} 个 (总数量：${materialCount})\n`;
-  summaryText += `🔹 机械标注：${summary.机械} 个 (总数量：${machineCount} 台)\n`;
-  summaryText += `🔹 自定义标注：${summary.自定义} 个\n\n`;
-  summaryText += `🌤 天气记录：${weatherRecords.length} 条\n`;
-  summaryText += `🗺 导入底图：${importedLayers.length} 个图层`;
-
-  // 显示汇总信息
-  alert(summaryText);
-  setStatus(`✅ 数据汇总完成：共${summary.总数量}个标注`);
-}
-
-// 备份全部数据
-async function backupAllData() {
-  if (markers.length === 0 && weatherRecords.length === 0) {
-    alert('无数据可备份');
-    return;
-  }
-
-  setStatus('⏳ 正在备份全部数据...');
   try {
     const zip = new JSZip();
-    
-    // 1. 生成Excel文件
-    const wb = XLSX.utils.book_new();
-    // 标注数据
-    const markerData = [];
-    markerData.push(['标注类型', '名称', '内容', '数量/人数', '补充信息', '时间范围', '备注', '纬度', '经度']);
-    markers.forEach(m => {
-      let type = m.type;
-      let name = m.f1 || '未命名';
-      let content = m.f2 || '-';
-      let count = m.f3 || '-';
-      let extra = '-';
-      let timeRange = '-';
-      
-      if (type === '人员') {
-        timeRange = m.f4 && m.f5 ? `${m.f4}-${m.f5}` : '-';
-      } else if (type === '材料') {
-        extra = m.f4 || '-';
-      } else if (type === '机械') {
-        extra = m.f4 || '-';
-        timeRange = m.f5 && m.f6 ? `${m.f5}-${m.f6}` : '-';
-      }
-      
-      markerData.push([
-        type, name, content, count, extra, timeRange,
-        m.remark || '-', m.lat.toFixed(6), m.lng.toFixed(6)
-      ]);
-    });
-    
-    // 天气数据
-    const weatherData = [];
-    weatherData.push(['日期', '天气状况', '施工影响', '延期天数']);
-    weatherRecords.forEach(w => {
-      weatherData.push([
-        w.date || '-',
-        w.cond || '-',
-        w.imp || '-',
-        w.delay || 0
-      ]);
-    });
-    
-    const markerWs = XLSX.utils.aoa_to_sheet(markerData);
-    const weatherWs = XLSX.utils.aoa_to_sheet(weatherData);
-    XLSX.utils.book_append_sheet(wb, markerWs, '标注数据');
-    XLSX.utils.book_append_sheet(wb, weatherWs, '天气记录');
-    
-    // 生成Excel文件内容
-    const excelContent = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    zip.file('光伏施工数据.xlsx', excelContent);
-    
-    // 2. 生成KML文件（标注点）
-    let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>光伏施工标注</name>`;
-    
-    markers.forEach(m => {
-      kmlContent += `
-    <Placemark>
-      <name>${m.label || '未命名'}</name>
-      <description>
-        类型：${m.type}<br>
-        内容：${m.f2 || '-'}<br>
-        备注：${m.remark || '-'}
-      </description>
-      <Point>
-        <coordinates>${m.lng},${m.lat},0</coordinates>
-      </Point>
-    </Placemark>`;
-    });
-    
-    kmlContent += `
-  </Document>
-</kml>`;
-    zip.file('光伏施工标注.kml', kmlContent);
-    
-    // 3. 打包并下载
-    const zipContent = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-    const fileName = `光伏施工全量备份_${new Date().toLocaleDateString().replace(/\//g, '-')}.zip`;
-    
-    // 下载ZIP文件
-    const url = URL.createObjectURL(zipContent);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    setStatus('✅ 全量数据备份成功');
-    alert(`备份文件已下载：${fileName}\n包含：Excel数据 + KML标注`);
-  } catch (err) {
-    setStatus('❌ 数据备份失败');
-    alert('备份失败：' + err.message);
-    console.error('备份错误:', err);
-  }
-}
+    // 1. 创建KML结构（分层管理）
+    let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <!-- 标注层 -->\n    <Folder>\n      <name>施工标注</name>`;
 
+    // 2. 处理标注（图标转为Base64内置）
+    for (const m of markers) {
+      let iconBase64 = await iconUrlToBase64(m.iconUrl || m.exportUrl || '');
+      const iconStyleId = `icon_${m.id}`;
+      kml += `\n      <Placemark>\n        <name>${m.label || '未命名标注'}</name>\n        <description>\n          类型：${m.type}<br>\n          内容：${m.f2 || '-'}<br>\n          备注：${m.remark || '-'}<br>\n          经纬度：${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}\n        </description>\n        <styleUrl>#${iconStyleId}</styleUrl>\n        <Point>\n          <coordinates>${m.lng.toFixed(6)},${m.lat.toFixed(6)},0</coordinates>\n        </Point>\n        <Style id="${iconStyleId}">\n          <IconStyle>\n            <Icon><href>${iconBase64}</href></Icon>\n          </IconStyle>\n        </Style>\n      </Placemark>`;
+    }
+
+    // 3. 底图层（同步前端配置的样式）
+    kml += `\n    </Folder>\n    <Folder>\n      <name>施工底图</name>\n      <Style id="areaStyle">\n        <LineStyle>\n          <color>${hexToKmlColor(areaColor)}</color>\n          <width>2</width>\n        </LineStyle>\n        <PolyStyle>\n          <color>${hexToKmlColor(areaColor, 0.08)}</color>\n        </PolyStyle>\n      </Style>`;
+
+    importedLayers.forEach((lay) => {
+      if (lay.type === 'label') {
+        kml += `\n        <Placemark>\n          <name>${lay.name || '未命名标签'}</name>\n          <Point>\n            <coordinates>${lay.lng},${lay.lat},0</coordinates>\n          </Point>\n          <Style>\n            <LabelStyle>\n              <color>${hexToKmlColor(textColor)}</color>\n              <scale>1.2</scale>\n            </LabelStyle>\n          </Style>\n        </Placemark>`;
+      }
+      if (lay.type === 'polyline') {
+        const coords = lay.latlngs.map((p) => `${p[1]},${p[0]},0`).join(' ');
+        kml += `\n        <Placemark>\n          <name>施工线路</name>\n          <styleUrl>#areaStyle</styleUrl>\n          <LineString>\n            <coordinates>${coords}</coordinates>\n          </LineString>\n        </Placemark>`;
+      }
+      if (lay.type === 'polygon') {
+        const coords = lay.latlngs.map((p) => `${p[1]},${p[0]},0`).join(' ');
+        kml += `\n        <Placemark>\n          <name>施工区域</name>\n          <styleUrl>#areaStyle</styleUrl>\n          <Polygon>\n            <outerBoundaryIs>\n              <LinearRing>\n                <coordinates>${coords}</coordinates>\n              </LinearRing>\n            </outerBoundaryIs>\n          </Polygon>\n        </Placemark>`;
+      }
+    });
+
+    kml += `\n    </Folder>\n  </Document>\n</kml>`;
+
+    zip.file('doc.kml', kml);
+
+    // 生成并下载（压缩级别降低以提升移动端性能）
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    await downloadBlob(blob, buildExportFileName('kmz'));
+    setStatus('✅ KMZ导出成功（离线可用+分层管理）');
+    setTimeout(() => alert('KMZ文件已处理完毕。'), 200);
+  } catch (err) {
+    setStatus('❌ KMZ导出失败');
+    alert('导出失败：' + err.message);
+  }
+
+  const zip = new JSZip();
+  // 1. 创建KML结构（分层管理）
+  let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <!-- 标注层 -->\n    <Folder>\n      <name>施工标注</name>`;
+
+  // 2. 处理标注（图标转为Base64内置）
+  for (const m of markers) {
+    let iconBase64 = await iconUrlToBase64(m.iconUrl || m.exportUrl || '');
+    const iconStyleId = `icon_${m.id}`;
+    kml += `\n      <Placemark>\n        <name>${m.label || '未命名标注'}</name>\n        <description>\n          类型：${m.type}<br>\n          内容：${m.f2 || '-'}<br>\n          备注：${m.remark || '-'}<br>\n          经纬度：${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}\n        </description>\n        <styleUrl>#${iconStyleId}</styleUrl>\n        <Point>\n          <coordinates>${m.lng.toFixed(6)},${m.lat.toFixed(6)},0</coordinates>\n        </Point>\n        <Style id="${iconStyleId}">\n          <IconStyle>\n            <Icon><href>${iconBase64}</href></Icon>\n          </IconStyle>\n        </Style>\n      </Placemark>`;
+  }
+
+  // 3. 底图层（同步前端配置的样式）
+  kml += `\n    </Folder>\n    <Folder>\n      <name>施工底图</name>\n      <Style id="areaStyle">\n        <LineStyle>\n          <color>${hexToKmlColor(areaColor)}</color>\n          <width>2</width>\n        </LineStyle>\n        <PolyStyle>\n          <color>${hexToKmlColor(areaColor, 0.08)}</color>\n        </PolyStyle>\n      </Style>`;
+
+  importedLayers.forEach((lay) => {
+    if (lay.type === 'label') {
+      kml += `\n        <Placemark>\n          <name>${lay.name || '未命名标签'}</name>\n          <Point>\n            <coordinates>${lay.lng},${lay.lat},0</coordinates>\n          </Point>\n          <Style>\n            <LabelStyle>\n              <color>${hexToKmlColor(textColor)}</color>\n              <scale>1.2</scale>\n            </LabelStyle>\n          </Style>\n        </Placemark>`;
+    }
+    if (lay.type === 'polyline') {
+      const coords = lay.latlngs.map((p) => `${p[1]},${p[0]},0`).join(' ');
+      kml += `\n        <Placemark>\n          <name>施工线路</name>\n          <styleUrl>#areaStyle</styleUrl>\n          <LineString>\n            <coordinates>${coords}</coordinates>\n          </LineString>\n        </Placemark>`;
+    }
+    if (lay.type === 'polygon') {
+      const coords = lay.latlngs.map((p) => `${p[1]},${p[0]},0`).join(' ');
+      kml += `\n        <Placemark>\n          <name>施工区域</name>\n          <styleUrl>#areaStyle</styleUrl>\n          <Polygon>\n            <outerBoundaryIs>\n              <LinearRing>\n                <coordinates>${coords}</coordinates>\n              </LinearRing>\n            </outerBoundaryIs>\n          </Polygon>\n        </Placemark>`;
+    }
+  });
+
+  kml += `\n    </Folder>\n  </Document>\n</kml>`;
+
+  zip.file("doc.kml", kml);
+  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+  await downloadBlob(blob, buildExportFileName('kmz'));
+
+  setStatus("✅ KMZ导出成功（离线可用+分层管理）");
+  setTimeout(() => alert("KMZ文件已下载，支持离线打开！"), 200);
+}
 function clearImportedLayers(){
   map.eachLayer(l=>{
     if(l.options?.interactive === false || l.options?.className === 'marker-label') map.removeLayer(l);
@@ -887,50 +601,23 @@ function clearImportedLayers(){
   importedLayers = [];
   setStatus("✅ 已清空导入底图");
 }
-
 function clearAllMarkers(){
   if(!confirm("确定清空所有标注？")) return;
   markers.forEach(m=>{ map.removeLayer(m.marker); map.removeLayer(m.labelLayer); });
   markers = [];
   setStatus("✅ 已清空全部标注");
 }
-
 function saveWeatherRecord(){
   let f=document.getElementById('weatherPhoto').files[0];
-  let w={
-    date: document.getElementById('weatherDate').value,
-    cond: document.getElementById('weatherCondition').value,
-    imp: document.getElementById('weatherImpact').value,
-    delay: document.getElementById('weatherDelay').value,
-    photo: null
-  };
-  
-  if(f){
-    let r=new FileReader();
-    r.onload=e=>{
-      w.photo=e.target.result;
-      weatherRecords.push(w);
-      setStatus("✅ 天气记录已保存");
-      document.getElementById('weatherPhoto').value='';
-    };
-    r.readAsDataURL(f);
-  }else{
-    weatherRecords.push(w);
-    setStatus("✅ 天气记录已保存");
-  }
+  let w={date:document.getElementById('weatherDate').value,cond:document.getElementById('weatherCondition').value,imp:document.getElementById('weatherImpact').value,delay:document.getElementById('weatherDelay').value,photo:null};
+  if(f){let r=new FileReader();r.onload=e=>{w.photo=e.target.result;weatherRecords.push(w);setStatus("✅ 天气记录已保存");document.getElementById('weatherPhoto').value='';};r.readAsDataURL(f);}else{weatherRecords.push(w);setStatus("✅ 天气记录已保存");}
 }
-
-function setStatus(text) {
-  document.getElementById('status').textContent = text;
-}
-
-// 工具函数：生成文件名
 function generateFileName(prefix = "光伏施工", type) {
   const time = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
   return `${prefix}_${time}.${type}`;
 }
 
-// 根据日期和队伍名称生成导出文件名前缀
+// 根据日期和队伍名称生成导出文件名前缀：YYYY-MM-DD_队伍名
 function getExportPrefixByTeam() {
   const date = new Date().toISOString().slice(0, 10);
   let team = '全部队伍';
@@ -947,36 +634,94 @@ function buildExportFileName(type, suffix) {
   return `${prefix}${suffix ? '_' + suffix : ''}.${type}`;
 }
 
-// 通用下载Blob
+// 通用下载 Blob：按移动端优化（优先分享 > a.download > 新窗口 > 复制Base64）
 async function downloadBlob(blob, filename) {
+  // 步骤1：尝试 Web Share 分享文件（移动端首选）
   try {
-    // 尝试Web Share API
     const file = new File([blob], filename, { type: blob.type });
     if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-      await navigator.share({ files: [file], title: `光伏施工-${filename}`, text: '请选择保存或分享' });
+      await navigator.share({ files: [file], title: `光伏施工-${filename}`, text: '请选择保存或分享到微信/邮箱' });
       return;
     }
   } catch (e) {
-    console.warn('Web Share不支持:', e);
+    console.warn('Web Share 失败或不支持', e);
   }
 
-  // 常规下载
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  // 步骤2：尝试使用 a[download]（大部分安卓生效）
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    a.style.display = 'block';
+    document.body.appendChild(a);
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+    a.dispatchEvent(event);
+    document.body.removeChild(a);
+    // 延迟 revoke，避免下载链路中断
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setTimeout(() => {
+      alert(`✅ 已触发下载！\n安卓：请查看浏览器下载栏；\niOS：请在Safari「下载」中查看（右下角↓图标）`);
+    }, 1000);
+    return;
+  } catch (e) {
+    console.warn('a.download 触发失败', e);
+  }
+
+  // 步骤3：在新窗口打开 Blob URL（iOS Safari 兜底）
+  try {
+    const url2 = URL.createObjectURL(blob);
+    const win = window.open(url2, '_blank');
+    if (!win) throw new Error('新窗口被拦截');
+    setTimeout(() => {
+      alert('✅ 请长按页面→「添加到照片」或「存储文件」，或使用右上角分享菜单保存文件。');
+    }, 1000);
+    setTimeout(() => URL.revokeObjectURL(url2), 10000);
+    return;
+  } catch (e) {
+    console.warn('新窗口打开 Blob 失败', e);
+  }
+
+  // 步骤4：终极兜底 — 复制 Base64 到剪贴板
+  try {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        await navigator.clipboard.writeText(e.target.result);
+        alert(`⚠️ 下载未成功，文件 Base64 已复制到剪贴板。请在电脑端粘贴并保存为 ${filename}`);
+      } catch (err) {
+        alert('下载失败，且无法复制到剪贴板。请在电脑端打开页面导出。');
+      }
+    };
+    reader.readAsDataURL(blob);
+  } catch (e) {
+    alert('下载失败：请在电脑端导出或更换浏览器。');
+  }
 }
 
-// 图标URL转Base64
+// 生成标注图标在 ZIP 中的文件名（与备份写入保持一致）
+function getMarkerIconFileName(m, index) {
+  const safeLabel = (m.label || `标注_${index+1}`).replace(/[^\n+\w\-\u4e00-\u9fa5]/g, '_').slice(0, 64);
+  let ext = 'png';
+  const iconUrl = m.iconUrl || m.exportUrl || '';
+  if (iconUrl.startsWith('data:')) {
+    const mime = (iconUrl.match(/data:([^;]+);/) || [null, 'image/png'])[1];
+    ext = (mime.split('/')[1] || ext).split('+')[0];
+  } else if (iconUrl) {
+    const path = iconUrl.split('?')[0];
+    const parts = path.split('.');
+    if (parts.length > 1) {
+      const candidate = parts.pop().toLowerCase();
+      if (candidate.length <= 5) ext = candidate;
+    }
+  }
+  return `标注图标_${index+1}_${safeLabel}.${ext}`;
+}
+
 async function iconUrlToBase64(url) {
-  if (!url) return '';
+  if (!url) return url;
   if (url.startsWith('data:')) return url;
-  
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -986,12 +731,11 @@ async function iconUrlToBase64(url) {
       reader.readAsDataURL(blob);
     });
   } catch (e) {
-    console.warn('图标转换失败:', url, e);
-    return '';
+    console.warn('图标转换失败，使用原始链接:', url);
+    return url;
   }
 }
 
-// 十六进制颜色转KML颜色
 function hexToKmlColor(hex, opacity = 1) {
   hex = hex.replace('#', '');
   const r = hex.substring(0, 2);
@@ -1000,6 +744,254 @@ function hexToKmlColor(hex, opacity = 1) {
   const aa = Math.round(opacity * 255).toString(16).padStart(2, '0');
   return aa + b + g + r;
 }
+
+async function saveDataToDesktop() {
+  const wb = XLSX.utils.book_new();
+
+  const markerData = markers.map((m, i) => ({
+    序号: i + 1,
+    标注类型: m.type,
+    '名称/队伍/机械类型': m.f1 || '-',
+    '内容/工作内容/型号': m.f2 || '-',
+    '数量/人数': m.f3 || '-',
+    '单位/操作人员': m.f4 || '-',
+    开始时间: m.f5 || '-',
+    结束时间: m.f6 || '-',
+    备注说明: m.remark || '-',
+    图标文件名: getMarkerIconFileName(m, i),
+    纬度: m.lat.toFixed(6),
+    经度: m.lng.toFixed(6),
+    标注时间: new Date().toLocaleString(),
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(markerData), '施工标注');
+
+  if (weatherRecords.length > 0) {
+    const weatherData = weatherRecords.map((w, i) => ({
+      序号: i + 1,
+      记录日期: w.date || new Date().toISOString().slice(0, 10),
+      天气状况: w.cond || '-',
+      施工影响: w.imp || '-',
+      延期天数: w.delay || 0,
+      照片附件: w.photo ? '已保存（见配套ZIP包）' : '无',
+      记录时间: new Date().toLocaleString(),
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(weatherData), '天气记录');
+  }
+
+  const summary = [
+    { 统计项: '标注总数', 数值: markers.length },
+    { 统计项: '人员标注数', 数值: markers.filter(m => m.type === '人员').length },
+    { 统计项: '材料标注数', 数值: markers.filter(m => m.type === '材料').length },
+    { 统计项: '机械标注数', 数值: markers.filter(m => m.type === '机械').length },
+    { 统计项: '自定义标注数', 数值: markers.filter(m => m.type === '自定义').length },
+    { 统计项: '天气记录数', 数值: weatherRecords.length },
+    { 统计项: '导入底图元素数', 数值: importedLayers.length },
+    { 统计项: '导出时间', 数值: new Date().toLocaleString() },
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), '数据汇总');
+
+  // 使用 write + downloadBlob 以兼容手机浏览器
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const excelBlob = new Blob([wbout], { type: 'application/octet-stream' });
+  await downloadBlob(excelBlob, buildExportFileName('xlsx'));
+  setStatus('✅ Excel导出成功（含数据汇总+友好字段）');
+  setTimeout(() => alert('Excel导出已触发，若未保存请在桌面端下载。'), 400);
+}
+
+function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
+  const byteCharacters = atob(b64Data);
+  const byteArrays = [];
+  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+    const slice = byteCharacters.slice(offset, offset + sliceSize);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+  return new Blob(byteArrays, { type: contentType });
+}
+
+// 压缩 data:URL 格式的图片（返回新的 dataURL），限制最大字节数
+function compressDataUrlImage(dataUrl, maxSize = 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    try {
+      const parts = dataUrl.split(',');
+      const meta = parts[0] || '';
+      const base64 = parts[1] || '';
+      const mime = (meta.match(/data:([^;]+);/) || [null, 'image/jpeg'])[1];
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        // 等比缩放限制最长边为800
+        if (width > height) {
+          if (width > 800) { height = Math.round(height * 800 / width); width = 800; }
+        } else {
+          if (height > 800) { width = Math.round(width * 800 / height); height = 800; }
+        }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        // 计算质量以尽量控制大小
+        let quality = 0.92;
+        const attempt = () => {
+          const newData = canvas.toDataURL(mime, quality);
+          // 估算大小
+          const len = Math.round((newData.length - newData.indexOf(',') - 1) * 3 / 4);
+          if (len <= maxSize || quality < 0.2) return resolve(newData);
+          quality = quality * 0.8;
+          setTimeout(attempt, 0);
+        };
+        attempt();
+      };
+      img.onerror = (e) => reject(e);
+      img.src = dataUrl;
+    } catch (e) { reject(e); }
+  });
+}
+
+async function backupAllData() {
+  if (markers.length === 0 && weatherRecords.length === 0 && importedLayers.length === 0) {
+    alert('无数据可备份');
+    return;
+  }
+
+  const zip = new JSZip();
+  const time = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+
+  // Excel 备份
+  const wb = XLSX.utils.book_new();
+  const markerData = markers.map((m, i) => ({
+    序号: i + 1,
+    标注类型: m.type,
+    名称: m.f1,
+    内容: m.f2,
+    数量: m.f3,
+    备注: m.remark,
+    图标文件名: getMarkerIconFileName(m, i),
+    纬度: m.lat.toFixed(6),
+    经度: m.lng.toFixed(6)
+  }));
+  const weatherData = weatherRecords.map((w, i) => ({
+    序号: i + 1,
+    日期: w.date,
+    天气: w.cond,
+    影响: w.imp,
+    延期: w.delay
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(markerData), '标注');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(weatherData), '天气');
+
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const excelBlob = new Blob([wbout], { type: 'application/octet-stream' });
+  zip.file(`光伏施工_${time}_数据.xlsx`, excelBlob);
+
+  // KMZ 备份（简化版）
+  const kmzZip = new JSZip();
+  let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>`;
+  markers.forEach(m => {
+    kml += `<Placemark><name>${m.label}</name><Point><coordinates>${m.lng.toFixed(6)},${m.lat.toFixed(6)},0</coordinates></Point></Placemark>`;
+  });
+  kml += `</Document></kml>`;
+  kmzZip.file('doc.kml', kml);
+  const kmzBlob = await kmzZip.generateAsync({ type: 'blob' });
+  zip.file(`光伏施工_${time}_底图.kmz`, kmzBlob);
+
+  // 照片备份（天气照片）
+  const photoFolder = zip.folder('天气照片');
+  weatherRecords.forEach((w, i) => {
+    if (w.photo) {
+      const base64Data = w.photo.split(',')[1];
+      const blob = b64toBlob(base64Data, 'image/jpeg');
+      photoFolder.file(`天气照片_${i+1}_${w.date}.jpg`, blob);
+    }
+  });
+
+  // 标注图标备份（支持 data:URL 与远程 URL）
+  const iconFolder = zip.folder('标注图标');
+  for (let i = 0; i < markers.length; i++) {
+    const m = markers[i];
+    const iconUrl = m.iconUrl || m.exportUrl || '';
+    if (!iconUrl) continue;
+    const filename = getMarkerIconFileName(m, i);
+    try {
+      if (iconUrl.startsWith('data:')) {
+        const parts = iconUrl.split(',');
+        const base64Data = parts[1] || '';
+        const mime = (parts[0].match(/data:([^;]+);/) || [null, 'image/png'])[1];
+        const blob = b64toBlob(base64Data, mime);
+        iconFolder.file(filename, blob);
+      } else {
+        try {
+          const resp = await fetch(iconUrl);
+          if (resp.ok) {
+            const b = await resp.blob();
+            iconFolder.file(filename, b);
+          } else {
+            console.warn('无法下载图标：', iconUrl);
+          }
+        } catch (e) {
+          console.warn('图标下载异常：', iconUrl, e);
+        }
+      }
+    } catch (err) {
+      console.warn('处理标注图标失败', m, err);
+    }
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  await downloadBlob(zipBlob, buildExportFileName('zip', '全量备份'));
+
+  setStatus('✅ 全量数据备份成功（Excel+KMZ+照片）');
+  alert('备份完成！包含：\n1. Excel数据\n2. KMZ底图\n3. 天气照片（如有）');
+}
+
+async function exportIncrementalData() {
+  const newMarkers = markers.slice(lastExportCount);
+  if (newMarkers.length === 0) {
+    alert('无新增标注数据');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const incrementalData = newMarkers.map((m, i) => ({
+    增量序号: i + 1,
+    标注类型: m.type,
+    名称: m.f1,
+    内容: m.f2,
+    数量: m.f3,
+    经纬度: `${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}`,
+    标注时间: new Date().toLocaleString(),
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(incrementalData), '新增标注');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const excelBlob = new Blob([wbout], { type: 'application/octet-stream' });
+  await downloadBlob(excelBlob, buildExportFileName('xlsx', '增量数据'));
+  lastExportCount = markers.length;
+  setStatus(`✅ 增量导出成功（新增${newMarkers.length}条标注）`);
+  alert(`新增标注导出已触发，若未保存请在桌面端下载。`);
+}
+function generateSummary(){let t={};markers.forEach(m=>t[m.type]=(t[m.type]||0)+1);let msg="📊 数据汇总\n";for(let k in t)msg+=`${k}：${t[k]}个\n`;msg+=`总标注：${markers.length}个\n天气记录：${weatherRecords.length}条`;alert(msg);setStatus("✅ 数据汇总已生成");}
+function setStatus(t){document.getElementById('status').innerText=t;}
+let locateWatchId=null,locateMarker=null,locateCircle=null;
+function toggleLocate(){locateWatchId?stopLocate():startLocate();}
+function startLocate(){
+  if(!navigator.geolocation){alert('浏览器不支持定位');return;}
+  setStatus('📡 定位中...');
+  document.getElementById('locateBtn')?.classList.add('active');
+  locateWatchId=navigator.geolocation.watchPosition(p=>{
+    let lat=p.coords.latitude,lng=p.coords.longitude,acc=p.coords.accuracy||5;
+    if(!locateMarker)locateMarker=L.marker([lat,lng],{interactive:false}).addTo(map);else locateMarker.setLatLng([lat,lng]);
+    if(!locateCircle)locateCircle=L.circle([lat,lng],{radius:acc,color:areaColor,fillColor:areaColor,fillOpacity:0.12,interactive:false}).addTo(map);
+    else{locateCircle.setLatLng([lat,lng]);locateCircle.setRadius(acc);}
+    map.setView([lat,lng],Math.max(map.getZoom(),16));
+    setStatus(`📍 ${lat.toFixed(6)},${lng.toFixed(6)} 精度${Math.round(acc)}m`);
+  },e=>{setStatus('⚠️ 定位失败');},{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+}
+function stopLocate(){if(locateWatchId){navigator.geolocation.clearWatch(locateWatchId);locateWatchId=null;}if(locateMarker){map.removeLayer(locateMarker);locateMarker=null;}if(locateCircle){map.removeLayer(locateCircle);locateCircle=null;}document.getElementById('locateBtn')?.classList.remove('active');setStatus('📍 定位停止');}
 </script>
 </body>
 </html>
