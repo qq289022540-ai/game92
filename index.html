@@ -6,7 +6,6 @@
 <title>光伏施工·简化集成版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-#root{ }
 html,body{width:100%;height:100%;overflow:hidden;background:#0f172a;color:#f1f5f9;font-family:PingFang SC,Microsoft YaHei,sans-serif}
 :root{--primary:#06b6d4;--basemap:#8b5cf6;--organize:#f59e0b;--danger:#dc2626}
 #map{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1}
@@ -467,7 +466,6 @@ function startPlaceAfterConfirm(){
   
   closeAllPanels();
   resetBottomBtnActive();
-  disableMapClickForMark();
   isPlacingMode = true;
   enableMapClickForMark();
   setStatus("👉 已收起面板，请点击地图完成标注");
@@ -749,16 +747,6 @@ async function exportKMZ() {
     }
   });
 
-  kml += `\n    </Folder>\n    <Folder>\n      <name>天气记录</name>`;
-  weatherRecords.forEach((w, index) => {
-    w.photos.forEach((photo, photoIndex) => {
-      const ext = photo.type.split('/')[1] || 'png';
-      const fileName = `天气记录_${index+1}_照片${photoIndex+1}.${ext}`;
-      weatherPhotosFolder.file(fileName, photo.data.split(',')[1], { base64: true });
-    });
-
-    kml += `\n        <Placemark>\n          <name>天气记录_${index+1}</name>\n          <description>\n            日期：${w.date}<br>\n            天气：${w.cond}<br>\n            施工影响：${w.imp}<br>\n            延期天数：${w.delay}<br>\n            照片数：${w.photos.length}张\n          </description>\n          <Point>\n            <coordinates>${AFIF.lng},${AFIF.lat},0</coordinates>\n          </Point>\n        </Placemark>`;
-  });
   kml += `\n    </Folder>\n  </Document>\n</kml>`;
 
   zip.file("doc.kml", kml);
@@ -774,20 +762,18 @@ async function exportKMZ() {
   setTimeout(() => alert("KMZ文件已下载，包含所有标注/天气照片！"), 200);
 }
 
+// ====== 修复点：Excel 字段优化 & 图标文件名 ======
 function saveDataToDesktop() {
   const wb = XLSX.utils.book_new();
 
   const markerData = markers.map((m, i) => ({
     序号: i + 1,
     标注类型: m.type,
-    '名称/队伍/机械类型': m.f1 || '-',
-    '内容/工作内容/型号': m.f2 || '-',
-    '数量/人数': m.f3 || '-',
-    '单位/操作人员': m.f4 || '-',
-    开始时间: m.f5 || '-',
-    结束时间: m.f6 || '-',
-    照片数量: m.photos.length,
-    备注说明: m.remark || '-',
+    名称: m.f1 || '-',
+    内容: m.f2 || '-',
+    数量: m.f3 || '-',
+    备注: m.remark || '-',
+    图标文件名: getMarkerIconFileName(m, i),
     纬度: m.lat.toFixed(6),
     经度: m.lng.toFixed(6),
     标注时间: new Date().toLocaleString(),
@@ -801,7 +787,7 @@ function saveDataToDesktop() {
       天气状况: w.cond || '-',
       施工影响: w.imp || '-',
       延期天数: w.delay || 0,
-      照片数量: w.photos.length,
+      照片附件: w.photos.length > 0 ? '已保存（见配套ZIP包）' : '无',
       记录时间: new Date().toLocaleString(),
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(weatherData), '天气记录');
@@ -823,21 +809,25 @@ function saveDataToDesktop() {
   setStatus("✅ Excel导出成功（包含照片数量统计）");
 }
 
+// ====== 修复点：全量备份逻辑 ======
 async function backupAllData() {
+  if (markers.length === 0 && weatherRecords.length === 0 && importedLayers.length === 0) {
+    alert('无数据可备份');
+    return;
+  }
+
   const zip = new JSZip();
   
+  // 1. Excel
   const wb = XLSX.utils.book_new();
   const markerData = markers.map((m, i) => ({
     序号: i + 1,
     标注类型: m.type,
-    '名称/队伍/机械类型': m.f1 || '-',
-    '内容/工作内容/型号': m.f2 || '-',
-    '数量/人数': m.f3 || '-',
-    '单位/操作人员': m.f4 || '-',
-    开始时间: m.f5 || '-',
-    结束时间: m.f6 || '-',
-    照片数量: m.photos.length,
-    备注说明: m.remark || '-',
+    名称: m.f1 || '-',
+    内容: m.f2 || '-',
+    数量: m.f3 || '-',
+    备注: m.remark || '-',
+    图标文件名: getMarkerIconFileName(m, i),
     纬度: m.lat.toFixed(6),
     经度: m.lng.toFixed(6),
     标注时间: new Date().toLocaleString(),
@@ -875,6 +865,7 @@ async function backupAllData() {
   });
   zip.file(buildExportFileName('xlsx'), excelBlob);
 
+  // 2. KMZ (仅地图数据)
   const kmzZip = new JSZip();
   let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <!-- 标注层 -->\n    <Folder>\n      <name>施工标注</name>`;
   
@@ -901,16 +892,13 @@ async function backupAllData() {
     }
   });
   
-  kml += `\n    </Folder>\n    <Folder>\n      <name>天气记录</name>`;
-  weatherRecords.forEach((w, index) => {
-    kml += `\n        <Placemark>\n          <name>天气记录_${index+1}</name>\n          <description>\n            日期：${w.date}<br>\n            天气：${w.cond}<br>\n            施工影响：${w.imp}<br>\n            延期天数：${w.delay}<br>\n            照片数：${w.photos.length}张\n          </description>\n          <Point>\n            <coordinates>${AFIF.lng},${AFIF.lat},0</coordinates>\n          </Point>\n        </Placemark>`;
-  });
   kml += `\n    </Folder>\n  </Document>\n</kml>`;
   
   kmzZip.file("doc.kml", kml);
   const kmzBlob = await kmzZip.generateAsync({ type: "blob", compression: "DEFLATE" });
   zip.file(buildExportFileName('kmz'), kmzBlob);
 
+  // 3. 所有照片
   const allPhotosFolder = zip.folder("所有照片");
   const markerPhotosFolder = allPhotosFolder.folder("标注照片");
   const weatherPhotosFolder = allPhotosFolder.folder("天气照片");
@@ -956,57 +944,6 @@ function clearAllMarkers(){
   markers.forEach(m=>{ map.removeLayer(m.marker); map.removeLayer(m.labelLayer); });
   markers = [];
   setStatus("✅ 已清空全部标注");
-}
-
-function generateFileName(prefix = "光伏施工", type) {
-  const time = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
-  return `${prefix}_${time}.${type}`;
-}
-
-function getExportPrefixByTeam() {
-  const date = new Date().toISOString().slice(0, 10);
-  let team = '全部队伍';
-  if (markers && markers.length > 0) {
-    const t = markers.find(m => m.f1 && String(m.f1).trim());
-    if (t) team = String(t.f1).trim();
-  }
-  team = team.replace(/[^\w\-\u4e00-\u9fa5]/g, '_').slice(0, 64);
-  return `${date}_${team}`;
-}
-
-function buildExportFileName(type, suffix) {
-  const prefix = getExportPrefixByTeam();
-  return `${prefix}${suffix ? '_' + suffix : ''}.${type}`;
-}
-
-async function iconUrlToBase64(url) {
-  if (!url) return url;
-  if (url.startsWith('data:')) return url;
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.warn('图标转换失败，使用原始链接:', url);
-    return url;
-  }
-}
-
-function hexToKmlColor(hex, opacity = 1) {
-  hex = hex.replace('#', '');
-  const r = hex.substring(0, 2);
-  const g = hex.substring(2, 4);
-  const b = hex.substring(4, 6);
-  const aa = Math.round(opacity * 255).toString(16).padStart(2, '0');
-  return aa + b + g + r;
-}
-
-function setStatus(text) {
-  document.getElementById('status').textContent = text;
 }
 
 function generateSummary() {
@@ -1063,6 +1000,72 @@ function toggleLocate() {
     map.setView([AFIF.lat, AFIF.lng], AFIF.zoom);
     setStatus("✅ 已取消定位");
   }
+}
+
+// ====== 工具函数 ======
+function getExportPrefixByTeam() {
+  const date = new Date().toISOString().slice(0, 10);
+  let team = '全部队伍';
+  if (markers && markers.length > 0) {
+    const t = markers.find(m => m.f1 && String(m.f1).trim());
+    if (t) team = String(t.f1).trim();
+  }
+  team = team.replace(/[^\w\-\u4e00-\u9fa5]/g, '_').slice(0, 64);
+  return `${date}_${team}`;
+}
+
+function buildExportFileName(type, suffix) {
+  const prefix = getExportPrefixByTeam();
+  return `${prefix}${suffix ? '_' + suffix : ''}.${type}`;
+}
+
+async function iconUrlToBase64(url) {
+  if (!url) return url;
+  if (url.startsWith('data:')) return url;
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn('图标转换失败，使用原始链接:', url);
+    return url;
+  }
+}
+
+function hexToKmlColor(hex, opacity = 1) {
+  hex = hex.replace('#', '');
+  const r = hex.substring(0, 2);
+  const g = hex.substring(2, 4);
+  const b = hex.substring(4, 6);
+  const aa = Math.round(opacity * 255).toString(16).padStart(2, '0');
+  return aa + b + g + r;
+}
+
+function setStatus(text) {
+  document.getElementById('status').textContent = text;
+}
+
+// 从备份版引入的标准化函数
+function getMarkerIconFileName(m, index) {
+  const safeLabel = (m.label || `标注_${index+1}`).replace(/[^\w\-\u4e00-\u9fa5]/g, '_').slice(0, 64);
+  let ext = 'png';
+  const iconUrl = m.iconUrl || m.exportUrl || '';
+  if (iconUrl.startsWith('data:')) {
+    const mime = (iconUrl.match(/data:([^;]+);/) || [null, 'image/png'])[1];
+    ext = (mime.split('/')[1] || ext).split('+')[0];
+  } else if (iconUrl) {
+    const path = iconUrl.split('?')[0];
+    const parts = path.split('.');
+    if (parts.length > 1) {
+      const candidate = parts.pop().toLowerCase();
+      if (candidate.length <= 5) ext = candidate;
+    }
+  }
+  return `标注图标_${index+1}_${safeLabel}.${ext}`;
 }
 </script>
 </body>
